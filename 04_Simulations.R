@@ -134,7 +134,6 @@ data <- data[name %in% c('ucinet','minden')]
 data[,name := factor(name,levels=c('ucinet','minden'))]
 # Success proportion
 data[,success := (TP+TN)/50]
-data[,logitsuccess := log(success / (1 - log(success)))] # better compare on the logit scale
 
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k)))
@@ -146,7 +145,7 @@ for(i in 1:nrow(diff.data)) {
   
   # Try to fit the model
   result <- tryCatch({
-    model <- lmer(success ~ name + (1 | trial_id), data = tomodel)
+    model <- lmer(success ~ 1 + name + (1 | trial_id), data = tomodel)
     
     # Extract estimates and SE
     est <- fixef(model)[2]
@@ -174,9 +173,9 @@ for(i in 1:nrow(diff.data)) {
 }
 
 # Visualization
-p2.1 <- ggplot(data=diff.data,aes(x=k,y=exp(est),
-                                ymin = exp(est+qnorm(0.025)*se) ,ymax = exp(est+qnorm(0.975)*se))) +
-  geom_hline(aes(yintercept = 1),color='red',linetype='dashed') +
+p2.1 <- ggplot(data=diff.data,aes(x=k,y=est,
+                                ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
+  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
   geom_pointrange(size=0) +  
   facet_grid('OR'~core_size,labeller = label_parsed) +
   labs(x=expression(italic(k)),y='Actor assignment accuracy') +
@@ -201,7 +200,6 @@ data <- data[name %in% c('ucinet','pcore')]
 data[,name := factor(name,levels=c('ucinet','pcore'))]
 # Success proportion
 data[,success := (TP+TN)/50]
-data[,logitsuccess := log(success / (1 - log(success)))] # better compare on the logit scale
 
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k)))
@@ -241,9 +239,9 @@ for(i in 1:nrow(diff.data)) {
 }
 
 # Visualization
-p2.2 <- ggplot(data=diff.data,aes(x=k,y=exp(est),
-                                  ymin = exp(est+qnorm(0.025)*se) ,ymax = exp(est+qnorm(0.975)*se))) +
-  geom_hline(aes(yintercept = 1),color='red',linetype='dashed') +
+p2.2 <- ggplot(data=diff.data,aes(x=k,y=est,
+                                  ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
+  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
   geom_pointrange(size=0) +  
   facet_grid('OR'~core_size,labeller = label_parsed) +
   labs(x=expression(italic(k)),y='Actor assignment accuracy') +
@@ -437,7 +435,6 @@ data <- data[name %in% c('ucinet','minden')]
 data[,name := factor(name,levels=c('ucinet','minden'))]
 # Success proportion
 data[,success := (TP+TN)/50]
-data[,logitsuccess := log(success / (1 - log(success)))] # better compare on the logit scale
 
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
@@ -477,9 +474,9 @@ for(i in 1:nrow(diff.data)) {
 }
 
 # Visualization
-p4.1 <- ggplot(data=diff.data,aes(x=k,y=exp(est),
-                                ymin = exp(est+qnorm(0.025)*se) ,ymax = exp(est+qnorm(0.975)*se))) +
-  geom_hline(aes(yintercept = 1),color='red',linetype='dashed') +
+p4.1 <- ggplot(data=diff.data,aes(x=k,y=est,
+                                ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
+  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
   geom_pointrange(size=0) +  
   facet_grid('OR'~conn+core_size,labeller = label_parsed) +
   labs(x=expression(italic(k)),y='Actor assignment accuracy') +
@@ -504,7 +501,6 @@ data <- data[name %in% c('ucinet','pcore')]
 data[,name := factor(name,levels=c('ucinet','pcore'))]
 # Success proportion
 data[,success := (TP+TN)/50]
-data[,logitsuccess := log(success / (1 - log(success)))] # better compare on the logit scale
 
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
@@ -544,9 +540,9 @@ for(i in 1:nrow(diff.data)) {
 }
 
 # Visualization
-p4.2 <- ggplot(data=diff.data,aes(x=k,y=exp(est),
-                                  ymin = exp(est+qnorm(0.025)*se) ,ymax = exp(est+qnorm(0.975)*se))) +
-  geom_hline(aes(yintercept = 1),color='red',linetype='dashed') +
+p4.2 <- ggplot(data=diff.data,aes(x=k,y=est,
+                                  ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
+  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
   geom_pointrange(size=0) +  
   facet_grid('OR'~conn+core_size,labeller = label_parsed) +
   labs(x=expression(italic(k)),y='Actor assignment accuracy') +
