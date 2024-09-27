@@ -145,7 +145,7 @@ for(i in 1:nrow(diff.data)) {
   
   # Try to fit the model
   result <- tryCatch({
-    model <- lmer(success ~ 1 + name + (1 | trial_id), data = tomodel)
+    model <- lmer(success ~ name + (1 | trial_id), data = tomodel)
     
     # Extract estimates and SE
     est <- fixef(model)[2]
