@@ -2,7 +2,7 @@
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (4) Simulations
 ## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
-## Date: Aug 20th, 2024
+## Date: Sep 27th, 2024
 ########################################################################################################################
 
 # R PACKAGES REQUIRED
@@ -20,7 +20,7 @@ theme_set(theme_bw())
 
 ########################################################################################################################
 
-# FIRST EXPERIMENT 
+# FIRST EXPERIMENT
 
 # Combination of parameters to be check
 n_size <- 50 # network size
@@ -61,7 +61,7 @@ for(i in seq_along(results)){
                                           as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
   # Minimum density blocks and pcore 0.25
   data$pcore[i] <- paste(as.vector(table(results3[[i]]$vec,
-                                          as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
+                                         as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
 }
 
 # Long format
@@ -112,7 +112,7 @@ p1.1 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)>=0')],
         axis.ticks.x = element_blank())
 
 p1.2 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)>=0 ~~~ italic(p)>=0.25')],
-       aes(x=k,y=value,fill=acc)) +
+               aes(x=k,y=value,fill=acc)) +
   geom_bar(stat='identity') +
   geom_hline(aes(yintercept = c)) +
   geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
@@ -138,21 +138,31 @@ data[,success := (TP+TN)/50]
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k)))
 
-for(i in 1:nrow(diff.data)) {
+for (i in 1:nrow(diff.data)) {
   # Subset of the data with that combination of parameters
   tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i]]
-  tomodel[, trial_id := rep(1:50, each = 2)] # Add trial ID
+  
+  # Dynamically create trial_id based on the number of rows in tomodel
+  trial_id_count <- nrow(tomodel) / 2
+  if (trial_id_count == floor(trial_id_count)) {
+    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
+  } else {
+    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
+    next
+  }
   
   # Try to fit the model
   result <- tryCatch({
-    model <- lmer(success ~ name + (1 | trial_id), data = tomodel)
+    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
     
     # Extract estimates and SE
-    est <- fixef(model)[2]
-    se <- sqrt(diag(vcov(model)))[2]
+    est <- fixef(model)[1]
+    se <- sqrt(diag(vcov(model)))[1]
+    est2 <- fixef(model)[2]
+    se2 <- sqrt(diag(vcov(model)))[2]
     
     # Return both est and se in a list
-    list(est = est, se = se)
+    list(est = est, se = se, est2 = est2, se2 = se2)
   }, warning = function(w) {
     # If a warning occurs, return NULL to skip this iteration
     return(NULL)
@@ -163,31 +173,47 @@ for(i in 1:nrow(diff.data)) {
   
   # If result is not NULL, store the values in diff.data
   if (!is.null(result)) {
-    diff.data$est[i] <- result$est
-    diff.data$se[i] <- result$se
+    diff.data$ucinet[i] <- result$est
+    diff.data$ucinet_se[i] <- result$se
+    diff.data$new[i] <- result$est2
+    diff.data$new_se[i] <- result$se2
   } else {
     # Optionally, you can set the values to NA if the model fails
-    diff.data$est[i] <- NA
-    diff.data$se[i] <- NA
+    diff.data$ucinet[i] <- NA
+    diff.data$ucinet_se[i] <- NA
+    diff.data$new[i] <- NA
+    diff.data$new_se[i] <- NA
   }
 }
 
+# Change data format
+est <- gather(diff.data[,c(1:3,5)],model,est,c(ucinet,new))
+se <- gather(diff.data[,c(1:2,4,6)],model,se,c(ucinet_se,new_se))
+diff.data <- data.table(est)
+diff.data[,se := se$se]
+diff.data[,model := factor(model,levels=c('ucinet','new'))]
+
 # Visualization
-p2.1 <- ggplot(data=diff.data,aes(x=k,y=est,
-                                ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
-  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
-  geom_pointrange(size=0) +  
-  facet_grid('OR'~core_size,labeller = label_parsed) +
-  labs(x=expression(italic(k)),y='Actor assignment accuracy') +
+p2.1 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
+                          ymin = est+qnorm(0.025)*se,
+                          ymax = est+qnorm(0.975)*se)) +
+  geom_ribbon(alpha=.5,linewidth=.1) + 
+  geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
+  facet_grid('Proportion'~core_size,labeller = label_parsed) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
   scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-  theme(strip.text.x = element_blank())
+  theme(strip.text.x = element_blank(),legend.position = 'top')
 
 # Combined both plots
 combined_plot <- p1.1 + p2.1 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Print the combined plot
 tiff(filename="Fig7.1.tiff",
-     width=27, height=15,units="cm", 
+     width=27, height=20,units="cm", 
      compression="lzw",bg="white",res=1000
 )
 combined_plot
@@ -204,21 +230,31 @@ data[,success := (TP+TN)/50]
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k)))
 
-for(i in 1:nrow(diff.data)) {
+for (i in 1:nrow(diff.data)) {
   # Subset of the data with that combination of parameters
   tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i]]
-  tomodel[, trial_id := rep(1:50, each = 2)] # Add trial ID
+  
+  # Dynamically create trial_id based on the number of rows in tomodel
+  trial_id_count <- nrow(tomodel) / 2
+  if (trial_id_count == floor(trial_id_count)) {
+    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
+  } else {
+    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
+    next
+  }
   
   # Try to fit the model
   result <- tryCatch({
-    model <- lmer(success ~ name + (1 | trial_id), data = tomodel)
+    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
     
     # Extract estimates and SE
-    est <- fixef(model)[2]
-    se <- sqrt(diag(vcov(model)))[2]
+    est <- fixef(model)[1]
+    se <- sqrt(diag(vcov(model)))[1]
+    est2 <- fixef(model)[2]
+    se2 <- sqrt(diag(vcov(model)))[2]
     
     # Return both est and se in a list
-    list(est = est, se = se)
+    list(est = est, se = se, est2 = est2, se2 = se2)
   }, warning = function(w) {
     # If a warning occurs, return NULL to skip this iteration
     return(NULL)
@@ -229,31 +265,47 @@ for(i in 1:nrow(diff.data)) {
   
   # If result is not NULL, store the values in diff.data
   if (!is.null(result)) {
-    diff.data$est[i] <- result$est
-    diff.data$se[i] <- result$se
+    diff.data$ucinet[i] <- result$est
+    diff.data$ucinet_se[i] <- result$se
+    diff.data$new[i] <- result$est2
+    diff.data$new_se[i] <- result$se2
   } else {
     # Optionally, you can set the values to NA if the model fails
-    diff.data$est[i] <- NA
-    diff.data$se[i] <- NA
+    diff.data$ucinet[i] <- NA
+    diff.data$ucinet_se[i] <- NA
+    diff.data$new[i] <- NA
+    diff.data$new_se[i] <- NA
   }
 }
 
+# Change data format
+est <- gather(diff.data[,c(1:3,5)],model,est,c(ucinet,new))
+se <- gather(diff.data[,c(1:2,4,6)],model,se,c(ucinet_se,new_se))
+diff.data <- data.table(est)
+diff.data[,se := se$se]
+diff.data[,model := factor(model,levels=c('ucinet','new'))]
+
 # Visualization
-p2.2 <- ggplot(data=diff.data,aes(x=k,y=est,
-                                  ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
-  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
-  geom_pointrange(size=0) +  
-  facet_grid('OR'~core_size,labeller = label_parsed) +
-  labs(x=expression(italic(k)),y='Actor assignment accuracy') +
+p2.2 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
+                          ymin = est+qnorm(0.025)*se,
+                          ymax = est+qnorm(0.975)*se)) +
+  geom_ribbon(alpha=.5,linewidth=.1) + 
+  geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0 ~ "&" ~ italic(p) >= 0.25))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0 ~ "&" ~ italic(p) >= 0.25))) +
+  facet_grid('Proportion'~core_size,labeller = label_parsed) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
   scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-  theme(strip.text.x = element_blank())
+  theme(strip.text.x = element_blank(),legend.position = 'top')
 
 # Combined both plots
 combined_plot2 <- p1.2 + p2.2 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Print the combined plot
 tiff(filename="Fig7.2.tiff",
-     width=27, height=15,units="cm", 
+     width=27, height=20,units="cm", 
      compression="lzw",bg="white",res=1000
 )
 combined_plot2
@@ -403,7 +455,7 @@ p3.1 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)>=0')],
   geom_hline(aes(yintercept = c)) +
   geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
   geom_text(aes(x=2,y=c-2.5,label='core'),size=2.5) +
-  facet_grid(model~type+core_size,labeller = label_parsed) +
+  facet_grid(model~core_size+type,labeller = label_parsed) +
   labs(x=expression(italic(k)),y='Average confusion matrix',color='',fill='',linetype='') +
   scale_fill_manual(values=c('red','green2','chartreuse','red3')) +
   scale_x_continuous(breaks = seq(1, 3, by = 1)) +
@@ -418,7 +470,7 @@ p3.2 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)>=0 ~~~ italic
   geom_hline(aes(yintercept = c)) +
   geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
   geom_text(aes(x=2,y=c-2.5,label='core'),size=2.5) +
-  facet_grid(model~type+core_size,labeller = label_parsed) +
+  facet_grid(model~core_size+type,labeller = label_parsed) +
   labs(x=expression(italic(k)),y='Average confusion matrix',color='',fill='',linetype='') +
   scale_fill_manual(values=c('red','green2','chartreuse','red3')) +
   scale_x_continuous(breaks = seq(1, 3, by = 1)) +
@@ -439,21 +491,31 @@ data[,success := (TP+TN)/50]
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
 
-for(i in 1:nrow(diff.data)) {
+for (i in 1:nrow(diff.data)) {
   # Subset of the data with that combination of parameters
   tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i] & conn == diff.data$conn[i]]
-  tomodel[, trial_id := rep(1:50, each = 2)] # Add trial ID
+  
+  # Dynamically create trial_id based on the number of rows in tomodel
+  trial_id_count <- nrow(tomodel) / 2
+  if (trial_id_count == floor(trial_id_count)) {
+    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
+  } else {
+    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
+    next
+  }
   
   # Try to fit the model
   result <- tryCatch({
-    model <- lmer(success ~ name + (1 | trial_id), data = tomodel)
+    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
     
     # Extract estimates and SE
-    est <- fixef(model)[2]
-    se <- sqrt(diag(vcov(model)))[2]
+    est <- fixef(model)[1]
+    se <- sqrt(diag(vcov(model)))[1]
+    est2 <- fixef(model)[2]
+    se2 <- sqrt(diag(vcov(model)))[2]
     
     # Return both est and se in a list
-    list(est = est, se = se)
+    list(est = est, se = se, est2 = est2, se2 = se2)
   }, warning = function(w) {
     # If a warning occurs, return NULL to skip this iteration
     return(NULL)
@@ -464,31 +526,47 @@ for(i in 1:nrow(diff.data)) {
   
   # If result is not NULL, store the values in diff.data
   if (!is.null(result)) {
-    diff.data$est[i] <- result$est
-    diff.data$se[i] <- result$se
+    diff.data$ucinet[i] <- result$est
+    diff.data$ucinet_se[i] <- result$se
+    diff.data$new[i] <- result$est2
+    diff.data$new_se[i] <- result$se2
   } else {
     # Optionally, you can set the values to NA if the model fails
-    diff.data$est[i] <- NA
-    diff.data$se[i] <- NA
+    diff.data$ucinet[i] <- NA
+    diff.data$ucinet_se[i] <- NA
+    diff.data$new[i] <- NA
+    diff.data$new_se[i] <- NA
   }
 }
 
+# Change data format
+est <- gather(diff.data[,c(1:4,6)],model,est,c(ucinet,new))
+se <- gather(diff.data[,c(1:3,5,7)],model,se,c(ucinet_se,new_se))
+diff.data <- data.table(est)
+diff.data[,se := se$se]
+diff.data[,model := factor(model,levels=c('ucinet','new'))]
+
 # Visualization
-p4.1 <- ggplot(data=diff.data,aes(x=k,y=est,
-                                ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
-  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
-  geom_pointrange(size=0) +  
-  facet_grid('OR'~conn+core_size,labeller = label_parsed) +
-  labs(x=expression(italic(k)),y='Actor assignment accuracy') +
+p4.1 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
+                          ymin = est+qnorm(0.025)*se,
+                          ymax = est+qnorm(0.975)*se)) +
+  geom_ribbon(alpha=.5,linewidth=.1) + 
+  geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
+  facet_grid('Proportion'~core_size+conn,labeller = label_parsed) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
   scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-  theme(strip.text.x = element_blank())
+  theme(strip.text.x = element_blank(),legend.position = 'top')
 
 # Combined both plots
 combined_plot3 <- p3.1 + p4.1 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Print the combined plot
 tiff(filename="Fig9.1.tiff",
-     width=27, height=15,units="cm", 
+     width=27, height=20,units="cm", 
      compression="lzw",bg="white",res=1000
 )
 combined_plot3
@@ -505,21 +583,31 @@ data[,success := (TP+TN)/50]
 # Data template
 diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
 
-for(i in 1:nrow(diff.data)) {
+for (i in 1:nrow(diff.data)) {
   # Subset of the data with that combination of parameters
   tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i] & conn == diff.data$conn[i]]
-  tomodel[, trial_id := rep(1:50, each = 2)] # Add trial ID
+  
+  # Dynamically create trial_id based on the number of rows in tomodel
+  trial_id_count <- nrow(tomodel) / 2
+  if (trial_id_count == floor(trial_id_count)) {
+    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
+  } else {
+    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
+    next
+  }
   
   # Try to fit the model
   result <- tryCatch({
-    model <- lmer(success ~ name + (1 | trial_id), data = tomodel)
+    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
     
     # Extract estimates and SE
-    est <- fixef(model)[2]
-    se <- sqrt(diag(vcov(model)))[2]
+    est <- fixef(model)[1]
+    se <- sqrt(diag(vcov(model)))[1]
+    est2 <- fixef(model)[2]
+    se2 <- sqrt(diag(vcov(model)))[2]
     
     # Return both est and se in a list
-    list(est = est, se = se)
+    list(est = est, se = se, est2 = est2, se2 = se2)
   }, warning = function(w) {
     # If a warning occurs, return NULL to skip this iteration
     return(NULL)
@@ -530,31 +618,47 @@ for(i in 1:nrow(diff.data)) {
   
   # If result is not NULL, store the values in diff.data
   if (!is.null(result)) {
-    diff.data$est[i] <- result$est
-    diff.data$se[i] <- result$se
+    diff.data$ucinet[i] <- result$est
+    diff.data$ucinet_se[i] <- result$se
+    diff.data$new[i] <- result$est2
+    diff.data$new_se[i] <- result$se2
   } else {
     # Optionally, you can set the values to NA if the model fails
-    diff.data$est[i] <- NA
-    diff.data$se[i] <- NA
+    diff.data$ucinet[i] <- NA
+    diff.data$ucinet_se[i] <- NA
+    diff.data$new[i] <- NA
+    diff.data$new_se[i] <- NA
   }
 }
 
+# Change data format
+est <- gather(diff.data[,c(1:4,6)],model,est,c(ucinet,new))
+se <- gather(diff.data[,c(1:3,5,7)],model,se,c(ucinet_se,new_se))
+diff.data <- data.table(est)
+diff.data[,se := se$se]
+diff.data[,model := factor(model,levels=c('ucinet','new'))]
+
 # Visualization
-p4.2 <- ggplot(data=diff.data,aes(x=k,y=est,
-                                  ymin = est+qnorm(0.025)*se ,ymax = est+qnorm(0.975)*se)) +
-  geom_hline(aes(yintercept = 0),color='red',linetype='dashed') +
-  geom_pointrange(size=0) +  
-  facet_grid('OR'~conn+core_size,labeller = label_parsed) +
-  labs(x=expression(italic(k)),y='Actor assignment accuracy') +
+p4.2 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
+                          ymin = est+qnorm(0.025)*se,
+                          ymax = est+qnorm(0.975)*se)) +
+  geom_ribbon(alpha=.5,linewidth=.1) + 
+  geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0 ~ "&" ~ italic(p) >= 0.25))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0 ~ "&" ~ italic(p) >= 0.25))) +
+  facet_grid('Proportion'~core_size+conn,labeller = label_parsed) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
   scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-  theme(strip.text.x = element_blank())
+  theme(strip.text.x = element_blank(),legend.position = 'top')
 
 # Combined both plots
 combined_plot4 <- p3.2 + p4.2 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Print the combined plot
 tiff(filename="Fig9.2.tiff",
-     width=27, height=15,units="cm", 
+     width=27, height=20,units="cm", 
      compression="lzw",bg="white",res=1000
 )
 combined_plot4
