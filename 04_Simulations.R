@@ -2,7 +2,7 @@
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (4) Simulations
 ## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
-## Date: Sep 27th, 2024
+## Date: Sep 28th, 2024
 ########################################################################################################################
 
 # R PACKAGES REQUIRED
@@ -132,71 +132,16 @@ data <- data.table(read_csv('simulations1.csv')) # bring data back
 # Change ref category
 data <- data[name %in% c('ucinet','minden')]
 data[,name := factor(name,levels=c('ucinet','minden'))]
-# Success proportion
-data[,success := (TP+TN)/50]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Data template
-diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k)))
-
-for (i in 1:nrow(diff.data)) {
-  # Subset of the data with that combination of parameters
-  tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i]]
-  
-  # Dynamically create trial_id based on the number of rows in tomodel
-  trial_id_count <- nrow(tomodel) / 2
-  if (trial_id_count == floor(trial_id_count)) {
-    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
-  } else {
-    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
-    next
-  }
-  
-  # Try to fit the model
-  result <- tryCatch({
-    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
-    
-    # Extract estimates and SE
-    est <- fixef(model)[1]
-    se <- sqrt(diag(vcov(model)))[1]
-    est2 <- fixef(model)[2]
-    se2 <- sqrt(diag(vcov(model)))[2]
-    
-    # Return both est and se in a list
-    list(est = est, se = se, est2 = est2, se2 = se2)
-  }, warning = function(w) {
-    # If a warning occurs, return NULL to skip this iteration
-    return(NULL)
-  }, error = function(e) {
-    # If an error occurs, also return NULL
-    return(NULL)
-  })
-  
-  # If result is not NULL, store the values in diff.data
-  if (!is.null(result)) {
-    diff.data$ucinet[i] <- result$est
-    diff.data$ucinet_se[i] <- result$se
-    diff.data$new[i] <- result$est2
-    diff.data$new_se[i] <- result$se2
-  } else {
-    # Optionally, you can set the values to NA if the model fails
-    diff.data$ucinet[i] <- NA
-    diff.data$ucinet_se[i] <- NA
-    diff.data$new[i] <- NA
-    diff.data$new_se[i] <- NA
-  }
-}
-
-# Change data format
-est <- gather(diff.data[,c(1:3,5)],model,est,c(ucinet,new))
-se <- gather(diff.data[,c(1:2,4,6)],model,se,c(ucinet_se,new_se))
-diff.data <- data.table(est)
-diff.data[,se := se$se]
-diff.data[,model := factor(model,levels=c('ucinet','new'))]
+# Extract results
+diff.data <- fit_glmer_models(data)
 
 # Visualization
 p2.1 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
-                          ymin = est+qnorm(0.025)*se,
-                          ymax = est+qnorm(0.975)*se)) +
+                          ymin = lower,ymax = upper)) +
   geom_ribbon(alpha=.5,linewidth=.1) + 
   geom_line(linewidth=.25) +
   scale_color_manual(values = c('red3','navyblue'), 
@@ -224,71 +169,16 @@ data <- data.table(read_csv('simulations1.csv')) # bring data back
 # Change ref category
 data <- data[name %in% c('ucinet','pcore')]
 data[,name := factor(name,levels=c('ucinet','pcore'))]
-# Success proportion
-data[,success := (TP+TN)/50]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
 # Data template
-diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k)))
-
-for (i in 1:nrow(diff.data)) {
-  # Subset of the data with that combination of parameters
-  tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i]]
-  
-  # Dynamically create trial_id based on the number of rows in tomodel
-  trial_id_count <- nrow(tomodel) / 2
-  if (trial_id_count == floor(trial_id_count)) {
-    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
-  } else {
-    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
-    next
-  }
-  
-  # Try to fit the model
-  result <- tryCatch({
-    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
-    
-    # Extract estimates and SE
-    est <- fixef(model)[1]
-    se <- sqrt(diag(vcov(model)))[1]
-    est2 <- fixef(model)[2]
-    se2 <- sqrt(diag(vcov(model)))[2]
-    
-    # Return both est and se in a list
-    list(est = est, se = se, est2 = est2, se2 = se2)
-  }, warning = function(w) {
-    # If a warning occurs, return NULL to skip this iteration
-    return(NULL)
-  }, error = function(e) {
-    # If an error occurs, also return NULL
-    return(NULL)
-  })
-  
-  # If result is not NULL, store the values in diff.data
-  if (!is.null(result)) {
-    diff.data$ucinet[i] <- result$est
-    diff.data$ucinet_se[i] <- result$se
-    diff.data$new[i] <- result$est2
-    diff.data$new_se[i] <- result$se2
-  } else {
-    # Optionally, you can set the values to NA if the model fails
-    diff.data$ucinet[i] <- NA
-    diff.data$ucinet_se[i] <- NA
-    diff.data$new[i] <- NA
-    diff.data$new_se[i] <- NA
-  }
-}
-
-# Change data format
-est <- gather(diff.data[,c(1:3,5)],model,est,c(ucinet,new))
-se <- gather(diff.data[,c(1:2,4,6)],model,se,c(ucinet_se,new_se))
-diff.data <- data.table(est)
-diff.data[,se := se$se]
-diff.data[,model := factor(model,levels=c('ucinet','new'))]
+diff.data <- fit_glmer_models(data)
 
 # Visualization
 p2.2 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
-                          ymin = est+qnorm(0.025)*se,
-                          ymax = est+qnorm(0.975)*se)) +
+                                  ymin = lower,ymax = upper)) +
   geom_ribbon(alpha=.5,linewidth=.1) + 
   geom_line(linewidth=.25) +
   scale_color_manual(values = c('red3','navyblue'), 
@@ -485,71 +375,16 @@ data <- data.table(read_csv('simulations2.csv')) # bring data back
 # Change ref category
 data <- data[name %in% c('ucinet','minden')]
 data[,name := factor(name,levels=c('ucinet','minden'))]
-# Success proportion
-data[,success := (TP+TN)/50]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Data template
-diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
-
-for (i in 1:nrow(diff.data)) {
-  # Subset of the data with that combination of parameters
-  tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i] & conn == diff.data$conn[i]]
-  
-  # Dynamically create trial_id based on the number of rows in tomodel
-  trial_id_count <- nrow(tomodel) / 2
-  if (trial_id_count == floor(trial_id_count)) {
-    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
-  } else {
-    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
-    next
-  }
-  
-  # Try to fit the model
-  result <- tryCatch({
-    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
-    
-    # Extract estimates and SE
-    est <- fixef(model)[1]
-    se <- sqrt(diag(vcov(model)))[1]
-    est2 <- fixef(model)[2]
-    se2 <- sqrt(diag(vcov(model)))[2]
-    
-    # Return both est and se in a list
-    list(est = est, se = se, est2 = est2, se2 = se2)
-  }, warning = function(w) {
-    # If a warning occurs, return NULL to skip this iteration
-    return(NULL)
-  }, error = function(e) {
-    # If an error occurs, also return NULL
-    return(NULL)
-  })
-  
-  # If result is not NULL, store the values in diff.data
-  if (!is.null(result)) {
-    diff.data$ucinet[i] <- result$est
-    diff.data$ucinet_se[i] <- result$se
-    diff.data$new[i] <- result$est2
-    diff.data$new_se[i] <- result$se2
-  } else {
-    # Optionally, you can set the values to NA if the model fails
-    diff.data$ucinet[i] <- NA
-    diff.data$ucinet_se[i] <- NA
-    diff.data$new[i] <- NA
-    diff.data$new_se[i] <- NA
-  }
-}
-
-# Change data format
-est <- gather(diff.data[,c(1:4,6)],model,est,c(ucinet,new))
-se <- gather(diff.data[,c(1:3,5,7)],model,se,c(ucinet_se,new_se))
-diff.data <- data.table(est)
-diff.data[,se := se$se]
-diff.data[,model := factor(model,levels=c('ucinet','new'))]
+# Extract results
+diff.data <- fit_glmer_models(data,conn_col = 'conn')
 
 # Visualization
 p4.1 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
-                          ymin = est+qnorm(0.025)*se,
-                          ymax = est+qnorm(0.975)*se)) +
+                                  ymin = lower,ymax = upper)) +
   geom_ribbon(alpha=.5,linewidth=.1) + 
   geom_line(linewidth=.25) +
   scale_color_manual(values = c('red3','navyblue'), 
@@ -577,71 +412,16 @@ data <- data.table(read_csv('simulations2.csv')) # bring data back
 # Change ref category
 data <- data[name %in% c('ucinet','pcore')]
 data[,name := factor(name,levels=c('ucinet','pcore'))]
-# Success proportion
-data[,success := (TP+TN)/50]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Data template
-diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
-
-for (i in 1:nrow(diff.data)) {
-  # Subset of the data with that combination of parameters
-  tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i] & conn == diff.data$conn[i]]
-  
-  # Dynamically create trial_id based on the number of rows in tomodel
-  trial_id_count <- nrow(tomodel) / 2
-  if (trial_id_count == floor(trial_id_count)) {
-    tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
-  } else {
-    # If trial_id cannot be assigned because of incorrect row counts, skip this iteration
-    next
-  }
-  
-  # Try to fit the model
-  result <- tryCatch({
-    model <- lmer(success ~ -1 + name + (1 | trial_id), data = tomodel)
-    
-    # Extract estimates and SE
-    est <- fixef(model)[1]
-    se <- sqrt(diag(vcov(model)))[1]
-    est2 <- fixef(model)[2]
-    se2 <- sqrt(diag(vcov(model)))[2]
-    
-    # Return both est and se in a list
-    list(est = est, se = se, est2 = est2, se2 = se2)
-  }, warning = function(w) {
-    # If a warning occurs, return NULL to skip this iteration
-    return(NULL)
-  }, error = function(e) {
-    # If an error occurs, also return NULL
-    return(NULL)
-  })
-  
-  # If result is not NULL, store the values in diff.data
-  if (!is.null(result)) {
-    diff.data$ucinet[i] <- result$est
-    diff.data$ucinet_se[i] <- result$se
-    diff.data$new[i] <- result$est2
-    diff.data$new_se[i] <- result$se2
-  } else {
-    # Optionally, you can set the values to NA if the model fails
-    diff.data$ucinet[i] <- NA
-    diff.data$ucinet_se[i] <- NA
-    diff.data$new[i] <- NA
-    diff.data$new_se[i] <- NA
-  }
-}
-
-# Change data format
-est <- gather(diff.data[,c(1:4,6)],model,est,c(ucinet,new))
-se <- gather(diff.data[,c(1:3,5,7)],model,se,c(ucinet_se,new_se))
-diff.data <- data.table(est)
-diff.data[,se := se$se]
-diff.data[,model := factor(model,levels=c('ucinet','new'))]
+# Extract results
+diff.data <- fit_glmer_models(data,conn_col = 'conn')
 
 # Visualization
 p4.2 <- ggplot(data=diff.data,aes(x=k,y=est,color=model,fill=model,
-                          ymin = est+qnorm(0.025)*se,
-                          ymax = est+qnorm(0.975)*se)) +
+                                  ymin = lower,ymax = upper)) +
   geom_ribbon(alpha=.5,linewidth=.1) + 
   geom_line(linewidth=.25) +
   scale_color_manual(values = c('red3','navyblue'), 
