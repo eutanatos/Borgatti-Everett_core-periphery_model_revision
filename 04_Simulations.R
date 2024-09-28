@@ -27,7 +27,7 @@ n_size <- 50 # network size
 cvals <- rep(seq(5,45,by=5))
 pvals <- 1/9
 kvals <- rep(seq(1,3,by=.1))
-repetitions <- 50 # number of repetitions per set of parameters
+repetitions <- 100 # number of repetitions per set of parameters
 
 data <- data.table(N = n_size, # number of nodes in the network
                    c = rep(cvals,each=repetitions*length(kvals)), # number of core members
@@ -383,7 +383,7 @@ cvals <- c(10,20,30,40)
 pvals <- 1/9
 kvals <- rep(seq(1,3,by=.1))
 conn <- c('no','core','periphery')
-repetitions <- 50 # number of repetitions per set of parameters
+repetitions <- 100 # number of repetitions per set of parameters
 
 data <- data.table(N = n_size, # number of nodes in the network
                    c = rep(cvals,each=repetitions*length(kvals)*length(conn)), # number of core members
