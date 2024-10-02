@@ -377,20 +377,20 @@ random_cp <- function(N = 50, c = 25, p = 1/9, k = 1) {
 # connected; How are the two core-periphery structures connected? 'no', 'core', 'periphery'
 # Depending on the version chosen, the networks are created as follows:
 # Unconnected ('no'), the default option
-# k^2p - kp  -  0    -  0
-# kp   - p   -  0    -  0
-# 0    - 0   -  k^2p - kp
-# 0    - 0   -  kp   - p
+# k^2p -  kp  -  0    -  0
+# kp   -  p   -  0    -  0
+# 0    -  0   -  k^2p -  kp
+# 0    -  0   -  kp   -  p
 # Connected via core nodes '(core') 
-# k^2p - kp  -  p    -  0
-# kp   - p   -  0    -  0
-# p    - 0   -  k^2p - kp
-# 0    - 0   -  kp   - p
+# k^2p      -  kp  -  p/sqrt(c) -  0
+# kp        -  p   -  0         -  0
+# p/sqrt(c) -  0   -  k^2p      -  kp
+# 0         -  0   -  kp        -  p
 # Connected via peripheral nodes ('periphery)
-# k^2p - kp  -  0    -  0
-# kp   - p   -  0    -  p
-# 0    - 0   -  k^2p - kp
-# 0    - p   -  kp   - p
+# k^2p -  kp          -  0    -  0
+# kp   -  p           -  0    -  p/sqrt(N-c)
+# 0    -  0           -  k^2p -  kp
+# 0    -  p/sqrt(N-c) -  kp   -  p
 
 random_cp2 <- function(N = 50, c = 25, p = 1/9, k = 1, connected='no') {
   # Conditions to run the algorithm

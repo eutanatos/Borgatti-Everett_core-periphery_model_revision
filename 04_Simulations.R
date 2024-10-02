@@ -2,7 +2,7 @@
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (4) Simulations
 ## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
-## Date: Sep 28th, 2024
+## Date: Oct 2nd, 2024
 ########################################################################################################################
 
 # R PACKAGES REQUIRED
