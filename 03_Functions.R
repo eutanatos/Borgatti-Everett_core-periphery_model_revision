@@ -446,9 +446,9 @@ random_cp2 <- function(N = 50, c = 25, p = 1/9, k = 1, connected='no') {
   for (i in seq_along(vct)) {
     for (j in seq_along(vct)) {
       if (connected == 'core') { # connected through cores
-        if (vct[i] == 1 & vct[j] == 1) { mtx2[i,j] <- rbinom(1, 1, p) } 
+        if (vct[i] == 1 & vct[j] == 1) { mtx2[i,j] <- rbinom(1, 1, p/sqrt(c)) } 
       }else if (connected == 'periphery') { # connected through peripheries
-        if (vct[i] == 0 & vct[j] == 0) { mtx2[i,j] <- rbinom(1, 1, p) } 
+        if (vct[i] == 0 & vct[j] == 0) { mtx2[i,j] <- rbinom(1, 1, p/sqrt(N-c)) } 
       }
     }
   }
