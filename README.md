@@ -33,7 +33,7 @@ The analysis relies on several dependencies, listed below with their respective 
 
 ## File list
 
-The repository includes six R scripts and a data folder:
+The repository includes four R scripts and a data folder:
 - [01_Illustration figures.R](https://github.com/joseluisesna/Borgatti-Everett_core-periphery_model_revision/blob/main/01_Illustration%20figures.R)
 - [02_Analyses of SocNet results.R](https://github.com/joseluisesna/Borgatti-Everett_core-periphery_model_revision/blob/main/02_Analyses%20of%20SocNet%20results.R)
 - [03_Functions.R](https://github.com/joseluisesna/Borgatti-Everett_core-periphery_model_revision/blob/main/03_Functions.R)
