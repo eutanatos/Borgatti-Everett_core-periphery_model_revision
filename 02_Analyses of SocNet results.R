@@ -1,9 +1,9 @@
-########################################################################################################################
+################################################################################
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (2) Analyses of SocNet results
 ## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
 ## Date: Aug 4th, 2024
-########################################################################################################################
+################################################################################
 
 # R PACKAGES REQUIRED
 library(data.table);library(ggplot2);library(purrr);library(stringr);library(ggpubr);library(sna);library(igraph)
@@ -14,9 +14,9 @@ rm(list=ls())
 # Set theme for plots
 theme_set(theme_bw())
 
-########################################################################################################################
+################################################################################
 
-# DATA LOADING
+# DATA LOADING ----
 
 # befig1, Baker, Galtung's and Zachary's networks
 mtx <- list()
@@ -37,9 +37,9 @@ socnet <- data.table(read.table('socnet output.csv',header=TRUE,sep=','))
 # core size
 socnet[,coresize := str_count(socnet$partition,'0')]
 
-########################################################################################################################
+################################################################################
 
-# NETWORK VISUALIZATIONS
+# NETWORK VISUALIZATIONS ----
 grphs <- lapply(mtx,graph_from_adjacency_matrix,mode='undirected') # turn into igraph objects
 
 # layouts
@@ -112,9 +112,9 @@ for(i in 1:4){
 }
 dev.off()
 
-########################################################################################################################
+################################################################################
 
-# SOME NETWORK DESCRIPTIVES
+# SOME NETWORK DESCRIPTIVES ----
 
 # Combined function to obtained average degree
 # Define the functions
@@ -138,9 +138,9 @@ desc <- data.table(network = names(grphs),
 desc
 write.table(desc,'descriptives.csv',sep=',',row.names = FALSE)
 
-########################################################################################################################
+################################################################################
 
-# INTER-CATEGORICAL DENSITIES (OUTPUT)
+# INTER-CATEGORICAL DENSITIES (OUTPUT) ----
 
 # Let's see inter-categorical blocks' densities
 # Since these are all undirected networks, we can just use one block
@@ -157,9 +157,9 @@ dobserved <- data.table(network = names(grphs),
                         doutput = round(intercat[,ties/cells],4)) # values used in socnet.se
 dobserved
 
-########################################################################################################################
+################################################################################
 
-# INTER-CATEGORICAL DENSITY SEARCH
+# INTER-CATEGORICAL DENSITY SEARCH ----
 icds <- socnet[intercategorical %in% c('denuci','den','denmin') 
                & pcore == 'com'
                & as.character(d) %in% seq(0,1,by=0.05)]
@@ -187,9 +187,9 @@ ggplot(data=icds[solution == 1],aes(x=d,y=gof)) +
   facet_grid(intercategorical~network) 
 dev.off()
 
-########################################################################################################################
+################################################################################
 
-# VISUALIZATION OF DISTORTING EFFECT ON BEFIG1
+# VISUALIZATION OF DISTORTING EFFECT ON BEFIG1 ----
 
 be <- as.data.table(reshape2::melt(mtx$befig1))
 
@@ -273,9 +273,9 @@ ggarrange(be33,edb1,be28,edb2,be38,edb3,
           nrow=3,ncol=2,labels=c('A','B','C','D','E','F'),common.legend = TRUE)
 dev.off()
 
-########################################################################################################################
+################################################################################
 
-# P-CORE
+# P-CORE ----
 
 # Let's see the effect of a smaller p-core value
 forplot <- socnet[intercategorical %in% c('dnc','denmin')] 
@@ -318,7 +318,7 @@ ggplot(data=forplot) +
   facet_grid(intercategorical~network,labeller=label_parsed) 
 dev.off()
 
-########################################################################################################################
+################################################################################
 
 # Let's extend the core periphery solutions to add core members with p-cores values >= 0.5
 # Alternative cores 
@@ -374,4 +374,4 @@ for(i in 1:4){
   text(x=-1.1, y=-1.1, labels=bquote(italic(p) >= 0.5), cex=1.25,col='red3')
 }
 
-########################################################################################################################
+################################################################################

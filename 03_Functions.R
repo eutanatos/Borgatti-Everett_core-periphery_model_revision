@@ -1,14 +1,14 @@
-########################################################################################################################
+################################################################################
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (3) Functions
 ## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
 ## Date: Aug 8th, 2024
-########################################################################################################################
+################################################################################
 
 # Core-periphery functions: Adapted from netUtils package
 
 # Standard core-periphery model as in UCInet with delta for inter-cat blocks
-cp_ucinet <- function(graph,delta=NA, ...){
+cp.ucinet <- function(graph,delta=NA, ...){
   A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
@@ -42,7 +42,7 @@ cp_ucinet <- function(graph,delta=NA, ...){
 }
 
 # Exact density blocks
-cp_exactden <- function(graph, delta, ...) {
+cp.exactden <- function(graph, delta, ...) {
   A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
@@ -121,7 +121,7 @@ cp_exactden <- function(graph, delta, ...) {
 }
 
 # Minimum density blocks
-cp_minden <- function(graph, delta, ...) {
+cp.minden <- function(graph, delta, ...) {
   A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
@@ -202,7 +202,7 @@ cp_minden <- function(graph, delta, ...) {
 }
 
 # p-core implementation with minimum density blocks
-cp_pcore <- function(graph, delta, p, ...) {
+cp.pcore <- function(graph, delta, p, ...) {
   A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
@@ -314,7 +314,7 @@ cp_pcore <- function(graph, delta, p, ...) {
   return(list(vec = optperm, corr = round(optcorr, 4)))
 }
 
-########################################################################################################################
+################################################################################
 
 # Let's create a function to simulate core-periphery networks
 
@@ -331,7 +331,7 @@ cp_pcore <- function(graph, delta, p, ...) {
 # k^2p - kp
 # kp   - p
 
-random_cp <- function(N = 50, c = 25, p = 1/9, k = 1) {
+random.cp <- function(N = 50, c = 25, p = 1/9, k = 1) {
   # Conditions to run the algorithm
   if (c >= N) {
     stop('c must be smaller than N')
@@ -392,7 +392,7 @@ random_cp <- function(N = 50, c = 25, p = 1/9, k = 1) {
 # 0    -  0           -  k^2p -  kp
 # 0    -  p/sqrt(N-c) -  kp   -  p
 
-random_cp2 <- function(N = 50, c = 25, p = 1/9, k = 1, connected='no') {
+random.cp2 <- function(N = 50, c = 25, p = 1/9, k = 1, connected='no') {
   # Conditions to run the algorithm
   if (N %% 2 == 1) {
     stop('Choose an even number for N') 
@@ -466,99 +466,4 @@ random_cp2 <- function(N = 50, c = 25, p = 1/9, k = 1, connected='no') {
   return(grp)
 }
 
-########################################################################################################################
-
-# Function to compare different partition approaches
-
-fit_glmer_models <- function(data,conn_col=NULL) {
-  # Create a data template for unique combinations of core_size, k and optionally conn
-  if(!is.null(conn_col)){
-    diff.data <- data.table(expand.grid(core_size=unique(data$c),k=unique(data$k),conn=unique(data$conn)))
-  }else{
-    diff.data <- data.table(expand.grid(core_size = unique(data$c), k = unique(data$k)))
-  }
-  
-  for (i in 1:nrow(diff.data)) {
-    # Check if 'conn' exists in diff.data and if it's specified as an argument
-    if (!is.null(conn_col) && conn_col %in% names(diff.data)) {
-      # Subset of the data with that combination of parameters, including conn
-      tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i] & conn == diff.data[[conn_col]][i]]
-    } else {
-      # Subset of the data without conn
-      tomodel <- data[c == diff.data$core_size[i] & k == diff.data$k[i]]
-    }
-    
-    # Dynamically create trial_id based on the number of rows in tomodel
-    trial_id_count <- nrow(tomodel) / 2
-    if (trial_id_count == floor(trial_id_count)) {
-      tomodel[, trial_id := rep(1:trial_id_count, each = 2)]
-    } else {
-      next  # Skip iteration if row counts are not even
-    }
-    
-    # Try to fit the model
-    result <- tryCatch({
-      model <- glmer(cbind(success, fail) ~ -1 + name + (1 | trial_id),
-                     family = binomial(link = 'logit'), data = tomodel)
-      
-      # Check if coefficients are valid
-      if (!any(is.na(fixef(model)))) {
-        # Extract estimates and SE
-        est <- plogis(fixef(model)[1])
-        lower <- plogis(fixef(model)[1] - qnorm(0.975) * sqrt(diag(vcov(model)))[1])  
-        upper <- plogis(fixef(model)[1] + qnorm(0.975) * sqrt(diag(vcov(model)))[1])  
-        est2 <- plogis(fixef(model)[2])
-        lower2 <- plogis(fixef(model)[2] - qnorm(0.975) * sqrt(diag(vcov(model)))[2])  
-        upper2 <- plogis(fixef(model)[2] + qnorm(0.975) * sqrt(diag(vcov(model)))[2]) 
-        
-        # Return both est and se in a list
-        list(est = est, lower = lower, upper = upper,
-             est2 = est2, lower2 = lower2, upper2 = upper2)
-      } else {
-        return(NULL)
-      }
-    }, warning = function(w) {
-      return(NULL)
-    }, error = function(e) {
-      return(NULL)
-    })
-    
-    # If result is not NULL, store the values in diff.data
-    if (!is.null(result)) {
-      diff.data$ucinet[i] <- result$est
-      diff.data$ucinet_lower[i] <- result$lower
-      diff.data$ucinet_upper[i] <- result$upper
-      diff.data$new[i] <- result$est2
-      diff.data$new_lower[i] <- result$lower2
-      diff.data$new_upper[i] <- result$upper2
-    } else {
-      diff.data$ucinet[i] <- NA
-      diff.data$ucinet_lower[i] <- NA
-      diff.data$ucinet_upper[i] <- NA
-      diff.data$new[i] <- NA 
-      diff.data$new_lower[i] <- NA
-      diff.data$new_upper[i] <- NA
-    }
-  }
-  
-  # Change data format to long format
-  if (!is.null(conn_col)){
-    est <- gather(diff.data[, c(1:4,7)], model, est, c(ucinet, new))
-    lower <- gather(diff.data[, c(1:3,5,8)], model, lower, c(ucinet_lower, new_lower))
-    upper <- gather(diff.data[, c(1:3,6,9)], model, upper, c(ucinet_upper, new_upper))
-  }else{
-    est <- gather(diff.data[, c(1:3,6)], model, est, c(ucinet, new))
-    lower <- gather(diff.data[, c(1:2,4,7)], model, lower, c(ucinet_lower, new_lower))
-    upper <- gather(diff.data[, c(1:2,5,8)], model, upper, c(ucinet_upper, new_upper)) 
-  }
-  
-  # Combine results into a final data table
-  diff.data <- data.table(est)
-  diff.data[, lower := lower$lower]
-  diff.data[, upper := upper$upper]
-  diff.data[, model := factor(model, levels = c('ucinet','new'))]
-  
-  return(diff.data)
-}
-
-########################################################################################################################
+################################################################################
