@@ -386,7 +386,7 @@ p4.2 <- run_model_and_plot(data2, "pcore")
 combined_plot2 <- p3.2 + p4.2 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Save the combined plot
-tiff(filename = "Fig7.2.tiff", width = 27, height = 20,
+tiff(filename = "Fig9.2.tiff", width = 27, height = 20,
      units = "cm", compression = "lzw", bg = "white", res = 1000)
 combined_plot2
 dev.off()
