@@ -25,13 +25,13 @@ The analysis relies on several dependencies, listed below with their respective 
 - [ggpubr](https://rpkgs.datanovia.com/ggpubr/) (0.6.0)
 - [patchwork](https://patchwork.data-imaginist.com/) (1.2.0)
 - [scales](https://scales.r-lib.org/) (1.3.0)
-- [sjPlot](https://strengejacke.github.io/sjPlot/) (2.8.16)
 - [igraph](https://r.igraph.org/) (2.0.3)
 - [sna](https://cran.r-project.org/web/packages/sna/index.html) (2.7-2)
 - [NetUtils](https://schochastics.github.io/netUtils/) (0.8.2)
 - [wCorr](https://cran.r-project.org/web/packages/wCorr/index.html) (1.9.8)
-- [lme4](https://cran.r-project.org/web/packages/lme4/index.html) (1.1-35.3)
+- [glmmTMB](https://cran.r-project.org/web/packages/glmmTMB/index.html) (1.1.10)
 - [microbenchmark](https://cran.r-project.org/web/packages/microbenchmark/index.html) (1.4.10)
+- [ggeffects](https://strengejacke.github.io/ggeffects/) (1.7.1)
 
 ## File list
 
