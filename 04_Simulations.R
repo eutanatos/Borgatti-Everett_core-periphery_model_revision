@@ -270,7 +270,7 @@ titles <- list(
   expression(paste("Periphery-connected, ", italic(c) == 20,', ',italic(k) == 2))
 )
 
-tiff(filename="FigA2.tiff",
+tiff(filename="FigA3.tiff",
      width=20, height=15,units="cm", 
      compression="lzw",bg="white",res=1000
 )
@@ -432,7 +432,7 @@ p4.1 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
 combined_plot3 <- p3.1 + p4.1 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Print the combined plot
-tiff(filename="FigA3.tiff",
+tiff(filename="FigA4.tiff",
      width=27, height=20,units="cm", 
      compression="lzw",bg="white",res=1000
 )
@@ -481,7 +481,7 @@ p4.2 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
 combined_plot4 <- p3.2 + p4.2 + plot_layout(ncol = 1, heights = c(2, 1))
 
 # Print the combined plot
-tiff(filename="FigA4.tiff",
+tiff(filename="FigA5.tiff",
      width=27, height=20,units="cm", 
      compression="lzw",bg="white",res=1000
 )
