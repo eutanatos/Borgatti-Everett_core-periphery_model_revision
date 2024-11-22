@@ -1,7 +1,7 @@
 ################################################################################
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (2) Analyses of SocNet results
-## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
+## R script written by José Luis Estévez (University of Helsinki)
 ## Date: Aug 4th, 2024
 ################################################################################
 
@@ -91,7 +91,7 @@ for(i in 1:length(edgelists)){
 gof <- socnet[pcore=='com' & intercategorical=='dnc',.(network,gof)]
 
 # Visualization
-tiff(filename="Fig3.tiff",
+tiff(filename="Fig2.tiff",
      width=25, height=25,units="cm", 
      compression="lzw",bg="white",res=1000
 )
@@ -265,7 +265,7 @@ edb3 <- ggplot(data=be,aes(x=value,y=ideal5)) +
   labs(x='Observed',y='',fill='Block',shape='Block')
 
 # Visualization
-tiff(filename="Fig5.tiff",
+tiff(filename="Fig3.tiff",
      width=14, height=21,units="cm", 
      compression="lzw",bg="white",res=1000
 )
@@ -286,7 +286,7 @@ forplot[,network := factor(network,levels=c('befig1','baker','galtung','zachary'
                            labels=c('BEfig1','Baker','Galtung','Zachary'))]
 forplot[,intercategorical := factor(intercategorical,
                                     levels=c('dnc','denmin'),
-                                    labels=c('italic(d)=="NA"','italic(d)>=0'))]
+                                    labels=c('italic(d)=="NA"','italic(d)==0'))]
 forplot[,pcore := as.numeric(pcore)]
 # Number of solutions
 forplot <- forplot[,length(solution),by=.(network,size,intercategorical,pcore,gof,coresize)]
@@ -298,7 +298,7 @@ ntwdens[,network := factor(network,levels=c('befig1','baker','galtung','zachary'
                            labels=c('BEfig1','Baker','Galtung','Zachary'))]
 
 # Visualization
-tiff(filename="Fig6.tiff",
+tiff(filename="Fig7.tiff",
      width=20, height=15,units="cm", 
      compression="lzw",bg="white",res=1000
 )
@@ -320,7 +320,7 @@ dev.off()
 
 ################################################################################
 
-# Let's extend the core periphery solutions to add core members with p-cores values >= 0.5
+# Let's extend the core periphery solutions to add core members with p-cores values = 0.5
 # Alternative cores 
 altcores <- socnet[intercategorical == 'denmin' 
                    & pcore %in% c(0.5,0.6,0.7,0.8,0.9,'com')]
@@ -371,7 +371,7 @@ for(i in 1:4){
               mark.border = c('grey70',NA),
               main=ntwnames[i])
   # add legend
-  text(x=-1.1, y=-1.1, labels=bquote(italic(p) >= 0.5), cex=1.25,col='red3')
+  text(x=-1.1, y=-1.1, labels=bquote(italic(p) == 0.5), cex=1.25,col='red3')
 }
 
 ################################################################################

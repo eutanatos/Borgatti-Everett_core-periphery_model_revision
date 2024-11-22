@@ -1,15 +1,15 @@
 ################################################################################
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (3) Functions
-## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
-## Date: Aug 8th, 2024
+## R script written by José Luis Estévez (University of Helsinki)
+## Date: Nov 20th, 2024
 ################################################################################
 
 # Core-periphery functions: Adapted from netUtils package
 
 # Standard core-periphery model as in UCInet with delta for inter-cat blocks
 cp.ucinet <- function(graph,delta=NA, ...){
-  A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
+  A <- igraph::as_adjacency_matrix(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
   optcorr <- -2
@@ -43,7 +43,7 @@ cp.ucinet <- function(graph,delta=NA, ...){
 
 # Exact density blocks
 cp.exactden <- function(graph, delta, ...) {
-  A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
+  A <- igraph::as_adjacency_matrix(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
   optcorr <- -2
@@ -121,8 +121,8 @@ cp.exactden <- function(graph, delta, ...) {
 }
 
 # Minimum density blocks
-cp.minden <- function(graph, delta, ...) {
-  A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
+cp.minden <- function(graph, delta=0, ...) {
+  A <- igraph::as_adjacency_matrix(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
   optcorr <- -2
@@ -201,9 +201,117 @@ cp.minden <- function(graph, delta, ...) {
   return(list(vec = optperm, corr = round(optcorr, 4)))
 }
 
+# p-core implementation with standard treatment of inter-cat blocks
+cp.pcore <- function(graph, delta=NA, p, ...) {
+  A <- igraph::as_adjacency_matrix(graph, type = "both", sparse = FALSE)
+  ev <- igraph::degree(graph, mode = "all", loops = FALSE)
+  thresh <- unique(ev)
+  optcorr <- -2
+  optperm <- NULL
+  
+  for (tr in thresh) {
+    evabs <- as.integer(ev >= tr)  # 1 (core), 0 (periphery)
+    # if all members are assigned to the core (or periphery), jump to next iteration
+    if (all(evabs == 1 | all(evabs == 0))){
+      next
+    }
+    
+    # Ensure dimensions 
+    n_core <- sum(evabs == 1)
+    n_periphery <- sum(evabs == 0)
+    
+    # Define the blocks in A
+    Acc <- A[evabs == 1, evabs == 1]
+    # Two images of the block
+    if(n_core > 1){
+      # Core image 1, sorted by row
+      Acc1 <- t(apply(Acc, 1, sort, decreasing = TRUE)) 
+      Acc1[,n_core] <- NA
+      # Core image 2, sorted by column
+      Acc2 <- apply(Acc, 2, sort, decreasing = TRUE)
+      Acc2[n_core,] <- NA
+    }else{
+      Acc1 <- Acc2 <- Acc
+    }
+    App <- A[evabs == 0, evabs == 0]
+    Acp <- matrix(A[evabs == 1, evabs == 0], nrow = n_core)
+    Apc <- matrix(A[evabs == 0, evabs == 1], ncol = n_core)
+    
+    # Putting all blocks back together for AA
+    if (n_core == 1){
+      AA <- rbind(c(Acc, Acp), cbind(Apc, App))
+    } else if (n_periphery == 1){
+      AA <- rbind(cbind(Acc, Acp), c(Apc, App))
+    } else {
+      AA <- matrix(0, nrow = n_core + n_periphery, ncol = n_core + n_periphery)
+      AA[1:n_core, 1:n_core] <- Acc
+      AA[(n_core + 1):(n_core + n_periphery), (n_core + 1):(n_core + n_periphery)] <- App
+      AA[1:n_core, (n_core + 1):(n_core + n_periphery)] <- Acp
+      AA[(n_core + 1):(n_core + n_periphery), 1:n_core] <- Apc
+    } 
+    diag(AA) <- NA
+    
+    # Ideal pattern blocks
+    # The core images
+    Ecc <- matrix(1, nrow = n_core, ncol = n_core)  # full core
+    n <- nrow(Acc) - 1
+    ones <- ceiling(p * n) # rounded up
+    if (n_core > 1){
+      Ecc1 <- Acc1
+      Ecc1[,1:ones] <- 1 # first columns filled with ones
+      Ecc2 <- Acc2
+      Ecc2[1:ones,] <- 1 # first rows filled with ones
+    }else{
+      Ecc1 <- Ecc2 <- Ecc
+    }
+    Epp <- matrix(0, nrow = n_periphery, ncol = n_periphery)  # empty periphery
+    
+    # Inter-categorical block images
+    Ecp <- matrix(delta,nrow = nrow(Acp),ncol = ncol(Acp))
+    Epc <- t(Ecp)
+    
+    # Putting all ideal blocks back together
+    if (n_core == 1){
+      E <- rbind(c(Ecc, Ecp), cbind(Epc, Epp))
+    } else if (n_periphery == 1){
+      E <- rbind(cbind(Ecc, Ecp),c(Epc, Epp))
+    } else {
+      E <- matrix(0, nrow = n_core + n_periphery, ncol = n_core + n_periphery)
+      E[1:n_core, 1:n_core] <- Ecc
+      E[(n_core + 1):(n_core + n_periphery), (n_core + 1):(n_core + n_periphery)] <- Epp
+      E[1:n_core, (n_core + 1):(n_core + n_periphery)] <- Ecp
+      E[(n_core + 1):(n_core + n_periphery), 1:n_core] <- Epc
+    } 
+    diag(E) <- NA
+    
+    # Let's create weights
+    W <- rep(1,length(AA))
+    Wcc1 <- rep(0.5,length(Acc1)) # core observations are weighted by half
+    Wcc2 <- rep(0.5,length(Acc2))
+    
+    if (sum(E, na.rm = TRUE) == 0) {
+      next
+    }
+    # All together into dataset 
+    X <- data.frame(a = c(as.vector(Acc1),as.vector(Acc2),as.vector(AA)),
+                    e = c(as.vector(Ecc1),as.vector(Ecc2),as.vector(E)),
+                    w = c(as.vector(Wcc1),as.vector(Wcc2),as.vector(W)))
+    X <- na.omit(X) # remove NAs
+    tmp <- suppressWarnings(weightedCorr(x=X$e,y=X$a,weights=X$w,method='Pearson'))
+    if (is.na(tmp)) {
+      next
+    }
+    if (tmp > optcorr) {
+      optperm <- evabs
+      optcorr <- tmp
+    }
+  }
+  return(list(vec = optperm, corr = round(optcorr, 4)))
+}
+
 # p-core implementation with minimum density blocks
-cp.pcore <- function(graph, delta, p, ...) {
-  A <- igraph::as_adj(graph, type = "both", sparse = FALSE)
+cp.minden.pcore <- function(graph, delta=0, p, ...) {
+  A <- igraph::as_adjacency_matrix(graph, type = "both", sparse = FALSE)
   ev <- igraph::degree(graph, mode = "all", loops = FALSE)
   thresh <- unique(ev)
   optcorr <- -2

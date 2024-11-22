@@ -1,14 +1,14 @@
 ################################################################################
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (4) Simulations
-## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
-## Date: Oct 11th, 2024
+## R script written by José Luis Estévez (University of Helsinki)
+## Date: Nov 21st, 2024
 ################################################################################
 
 # R PACKAGES REQUIRED
 library(data.table);library(tidyverse);library(stringr);library(patchwork);library(scales)
 library(igraph);library(netUtils);library(wCorr)
-library(glmmTMB);library(ggeffects);library(performance)
+library(lme4);library(sjPlot)
 library(microbenchmark)
 
 # CLEAN ENVIRONMENT
@@ -46,7 +46,7 @@ for(i in 1:nrow(data)){
 # Different implementations applied to synthetic networks
 results <- lapply(simntw,cp.ucinet) # standard BE method
 results2 <- lapply(simntw,cp.minden,delta=0) # min-density blocks
-results3 <- lapply(simntw,cp.pcore,delta=0,p=0.25) # min-density blocks, plus p-core 0.25
+results3 <- lapply(simntw,cp.pcore,delta=NA,p=0.5) # p-core 0.5
 
 # Data extraction
 for(i in seq_along(results)){
@@ -61,7 +61,7 @@ for(i in seq_along(results)){
   # Minimum density blocks
   data$minden[i] <- paste(as.vector(table(results2[[i]]$vec,
                                           as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
-  # Minimum density blocks and pcore 0.25
+  # pcore 0.5
   data$pcore[i] <- paste(as.vector(table(results3[[i]]$vec,
                                          as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
 }
@@ -77,113 +77,147 @@ data <- cbind(data,vals)
 # Save raw data as csv file
 write_csv(data,file='simulations1.csv')
 
-# Data wrangling for visualization ----
-means <- data[, lapply(.SD, mean), .SDcols = c("TN", "FP", "FN", "TP"), by = .(name, k, c)]
-setnames(means, c("TN", "FP", "FN", "TP"), paste0("mean_", c("tn", "fp", "fn", "tp")))
+# Data wrangling for visualization
+mn1 <- data[,mean(TN),by=.(name,k,c)]
+mn2 <- data[,mean(FP),by=.(name,k,c)]
+mn3 <- data[,mean(FN),by=.(name,k,c)]
+mn4 <- data[,mean(TP),by=.(name,k,c)]
+# Put altogether
+mn1$V2 <- mn2$V1
+mn1$V3 <- mn3$V1
+mn1$V4 <- mn4$V1
+names(mn1) <- c('model','k','c','tn','fp','fn','tp')
+# Long format
+data <- data.table(pivot_longer(as_tibble(mn1),cols=c(tn,fp,fn,tp)))
 
-# Reshape data to long format
-data_long <- as.data.table(pivot_longer(as_tibble(means), cols = starts_with("mean_"), names_to = "acc", values_to = "value"))
+# Rename
+data[,model := factor(model,levels=c('ucinet','minden','pcore'),
+                      labels=c('italic(d)=="NA"','italic(d)==0','italic(d)=="NA" ~~~ italic(p)==0.5'))]
+data[,core_size := factor(c,labels=paste('italic(c)==',cvals,sep=''))]
+data[,acc := factor(name,levels=c('fp','tn','tp','fn'),
+                    labels=c('False core','True periphery','True core','False periphery'))]
 
-# Rename factors
-data_long[, `:=`(
-  model = factor(name, levels = c("ucinet", "minden", "pcore"),
-                 labels = c("italic(d) == 'NA'", 
-                            "italic(d) >= 0", 
-                            "italic(d) >= 0 ~~~ italic(p) >= 0.25")),
-  core_size = factor(c, labels = paste("italic(c) ==", cvals, sep = '')),
-  acc = factor(acc, levels = c("mean_fp", "mean_tn", "mean_tp", "mean_fn"),
-               labels = c("False core", "True periphery", "True core", "False periphery"))
-)]
+# Visualization
+p1.1 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)==0')],
+               aes(x=k,y=value,fill=acc)) +
+  geom_bar(stat='identity') +
+  geom_hline(aes(yintercept = c)) +
+  geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
+  geom_text(aes(x=2,y=c-2.5,label='core'),size=2.5) +
+  facet_grid(model~core_size,labeller = label_parsed) +
+  labs(y='Average confusion matrix',color='',fill='',linetype='') +
+  scale_fill_manual(values=c('red','green2','chartreuse','red3')) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(legend.position="top",
+        axis.title.x = element_blank(),   # Remove x-axis label
+        axis.text.x = element_blank(),    # Remove x-axis text (tick labels)
+        axis.ticks.x = element_blank())
 
-# Function to create ggplot for specified models
-create_plot <- function(data, models, facet_by = c("core_size", "type")) {
-  # Define facet formula based on the selected facets
-  facet_formula <- if (length(facet_by) == 1) {
-    as.formula(paste("model ~", facet_by[1]))
-  } else {
-    as.formula(paste("model ~", paste(facet_by, collapse = " + ")))
-  }
-  
-  # Plot creation
-  ggplot(data = data[model %in% models], aes(x = k, y = value, fill = acc)) +
-    geom_bar(stat = "identity") +
-    geom_hline(aes(yintercept = c)) +
-    geom_text(aes(x = 2, y = c + 2.5, label = "periphery"), size = 2.5) +
-    geom_text(aes(x = 2, y = c - 2.5, label = "core"), size = 2.5) +
-    facet_grid(facet_formula, labeller = label_parsed) +
-    labs(y = "Average confusion matrix", color = "", fill = "", linetype = "") +
-    scale_fill_manual(values = c("red", "green2", "chartreuse", "red3")) +
-    scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-    theme(legend.position = "top",
-          axis.title.x = element_blank(),
-          axis.text.x = element_blank(),
-          axis.ticks.x = element_blank())
-}
+p1.2 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)=="NA" ~~~ italic(p)==0.5')],
+               aes(x=k,y=value,fill=acc)) +
+  geom_bar(stat='identity') +
+  geom_hline(aes(yintercept = c)) +
+  geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
+  geom_text(aes(x=2,y=c-2.5,label='core'),size=2.5) +
+  facet_grid(model~core_size,labeller = label_parsed) +
+  labs(y='Average confusion matrix',color='',fill='',linetype='') +
+  scale_fill_manual(values=c('red','green2','chartreuse','red3')) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(legend.position="top",
+        axis.title.x = element_blank(),   # Remove x-axis label
+        axis.text.x = element_blank(),    # Remove x-axis text (tick labels)
+        axis.ticks.x = element_blank())
 
-# Create plots
-p1.1 <- create_plot(data_long, c("italic(d) == 'NA'", "italic(d) >= 0"),
-                    facet_by = "core_size")
-p1.2 <- create_plot(data_long, c("italic(d) == 'NA'", "italic(d) >= 0 ~~~ italic(p) >= 0.25"),
-                    facet_by = "core_size")
+# Second part of the plot comparing the accuracy of both models
+# 2.1) Comparing BE with min-density blocks ----
+data <- data.table(read_csv('simulations1.csv')) # bring data back
+# Change ref category
+data <- data[name %in% c('ucinet','minden')]
+data[,name := factor(name,levels=c('ucinet','minden'))]
+# Add indicator of network
+data[,ntw := rep(1:(nrow(data)/2),each=2)]
+data[,ntw := as.factor(ntw)]
+# Let's model c as a factor (a set of dummies)
+data[,c := as.factor(c)]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Function to prepare data for modeling and plotting
-prepare_model_data <- function(data, model_names) {
-  data <- data[name %in% model_names]
-  data[, name := factor(name, levels = model_names)]
-  data[, ntw := rep(1:(nrow(data) / 2), each = 2)]
-  data[, ntw := as.factor(ntw)]
-  data[, c := as.factor(c)]
-  data[, success := TP + TN]
-  data[, fail := FP + FN]
-  return(data)
-}
+# Data modelling
+model1 <- glm(cbind(success, fail) ~ name*k*c,
+                family = binomial(link = 'logit'), data = data)
+# Extract predicted values
+plot_model(model1,terms=c('name'),type='pred')
+(p2.1 <- plot_model(model1,terms=c('k [all]','name','c'),type='pred'))
+# Let's just customize the plots
+data <- data.table(p2.1$data)
+p2.1 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
+                     color=group_col,fill=group_col)) + 
+  geom_ribbon(alpha=.5,linewidth=.1) + geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) == 0))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) == 0 ))) +
+  facet_grid('Predicted probabilities'~facet) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
+  scale_y_continuous(labels = percent_format(scale = 100)) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(strip.text.x = element_blank(),legend.position = 'top')
+ 
+# Combined both plots
+combined_plot <- p1.1 + p2.1 + plot_layout(ncol = 1, heights = c(2, 1))
 
-# Model and plot function ----
-run_model_and_plot <- function(data, model_name) {
-  model <- glmmTMB(cbind(success, fail) ~ name * k * c + (1 | ntw),
-                   family = binomial(link = 'logit'), data = data)
-  predvals <- ggpredict(model, terms = c("k [all]", "name", "c"),
-                        ci_level = .995) # 99.5% Confidence intervals
-  predvals <- data.table(predvals)
-  
-  ggplot(data = predvals, aes(x = x, y = predicted, ymin = conf.low, ymax = conf.high,
-                              color = group, fill = group)) +
-    geom_ribbon(alpha = .5, linewidth = .1) + 
-    geom_line(linewidth = .25) +
-    scale_color_manual(values = c("red3", "navyblue"),
-                       labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
-    scale_fill_manual(values = c("orange", "royalblue"),
-                      labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
-    facet_grid("Confidence intervals (99.5%)" ~ facet) +
-    labs(x = expression(italic(k)), y = "Actor assignment accuracy", color = "", fill = "") +
-    scale_y_continuous(labels = percent_format(scale = 100)) +
-    scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-    theme(strip.text.x = element_blank(), legend.position = "top")
-}
-
-# Run analysis and plotting for each model
-data1 <- prepare_model_data(data, c("ucinet", "minden"))
-p2.1 <- run_model_and_plot(data1, "minden")
-
-# Combined plots
-combined_plot1 <- p1.1 + p2.1 + plot_layout(ncol = 1, heights = c(2, 1))
-
-# Save the combined plot
-tiff(filename = "Fig7.1.tiff", width = 27, height = 20, 
-     units = "cm", compression = "lzw", bg = "white", res = 1000)
-combined_plot1
+# Print the combined plot
+tiff(filename="Fig5.tiff",
+     width=27, height=20,units="cm", 
+     compression="lzw",bg="white",res=1000
+)
+combined_plot
 dev.off()
 
-# Run analysis and plotting for the second model
-data2 <- prepare_model_data(data, c("ucinet", "pcore"))
-p2.2 <- run_model_and_plot(data2, "pcore")
+# 2.2) Comparing BE with combination min-density and p-core 0.25 ----
+data <- data.table(read_csv('simulations1.csv')) # bring data back
+# Change ref category
+data <- data[name %in% c('ucinet','pcore')]
+data[,name := factor(name,levels=c('ucinet','pcore'))]
+# Add indicator of network
+data[,ntw := rep(1:(nrow(data)/2),each=2)]
+data[,ntw := as.factor(ntw)]
+# Let's model c as a factor (a set of dummies)
+data[,c := as.factor(c)]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Combined plots for the second analysis
+# Data modelling
+model2 <- glm(cbind(success, fail) ~ name*k*c,
+              family = binomial(link = 'logit'), data = data)
+# Extract predicted values
+plot_model(model2,terms=c('name'),type='pred')
+(p2.2 <- plot_model(model2,terms=c('k [all]','name','c'),type='pred'))
+# Let's just customize the plots
+data <- data.table(p2.2$data)
+p2.2 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
+                             color=group_col,fill=group_col)) + 
+  geom_ribbon(alpha=.5,linewidth=.1) + geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
+  facet_grid('Predicted probabilities'~facet) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
+  scale_y_continuous(labels = percent_format(scale = 100)) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(strip.text.x = element_blank(),legend.position = 'top')
+
+# Combined both plots
 combined_plot2 <- p1.2 + p2.2 + plot_layout(ncol = 1, heights = c(2, 1))
 
-# Save the combined plot
-tiff(filename = "Fig7.2.tiff", width = 27, height = 20,
-     units = "cm", compression = "lzw", bg = "white", res = 1000)
+# Print the combined plot
+tiff(filename="Fig8.tiff",
+     width=27, height=20,units="cm", 
+     compression="lzw",bg="white",res=1000
+)
 combined_plot2
 dev.off()
 
@@ -208,7 +242,7 @@ result2 <- microbenchmark(
 print(result2)
 
 result3 <- microbenchmark(
-  lapply(simntw[sample],cp.pcore,delta=0,p=0.25),
+  lapply(simntw[sample],cp.pcore,delta=NA,p=0.5),
   times = 100  # Number of times to repeat the measurement
 )
 print(result3)
@@ -236,7 +270,7 @@ titles <- list(
   expression(paste("Periphery-connected, ", italic(c) == 20,', ',italic(k) == 2))
 )
 
-tiff(filename="Fig8.tiff",
+tiff(filename="FigA2.tiff",
      width=20, height=15,units="cm", 
      compression="lzw",bg="white",res=1000
 )
@@ -277,7 +311,7 @@ for(i in 1:nrow(data)){
 # Different implementations applied to synthetic networks
 results <- lapply(simntw,cp.ucinet) # standard BE method
 results2 <- lapply(simntw,cp.minden,delta=0) # min-density blocks
-results3 <- lapply(simntw,cp.pcore,delta=0,p=0.25) # min-density blocks, plus p-core 0.25
+results3 <- lapply(simntw,cp.pcore,delta=NA,p=0.5) # p-core 0.5
 
 # Data extraction
 for(i in seq_along(results)){
@@ -287,7 +321,7 @@ for(i in seq_along(results)){
   # Minimum density blocks
   data$minden[i] <- paste(as.vector(table(results2[[i]]$vec,
                                           as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
-  # Minimum density blocks and pcore 0.25
+  # p-core 0.5
   data$pcore[i] <- paste(as.vector(table(results3[[i]]$vec,
                                          as.integer(startsWith(V(simntw[[i]])$name,'C')))),collapse=';')
 }
@@ -303,92 +337,155 @@ data <- cbind(data,vals)
 # Save raw data as csv file
 write_csv(data,file='simulations2.csv')
 
-# Data wrangling for visualization ----
-means <- data[, lapply(.SD, mean), .SDcols = c("TN", "FP", "FN", "TP"), by = .(name, k, c, conn)]
-setnames(means, c("TN", "FP", "FN", "TP"), paste0("mean_", c("tn", "fp", "fn", "tp")))
+# Data wrangling for visualization
+mn1 <- data[,mean(TN),by=.(name,k,c,conn)]
+mn2 <- data[,mean(FP),by=.(name,k,c,conn)]
+mn3 <- data[,mean(FN),by=.(name,k,c,conn)]
+mn4 <- data[,mean(TP),by=.(name,k,c,conn)]
+# Put altogether
+mn1$V2 <- mn2$V1
+mn1$V3 <- mn3$V1
+mn1$V4 <- mn4$V1
+names(mn1) <- c('model','k','c','conn','tn','fp','fn','tp')
+# Long format
+data <- data.table(pivot_longer(as_tibble(mn1),cols=c(tn,fp,fn,tp)))
 
-# Reshape data to long format
-data_long <- as.data.table(pivot_longer(as_tibble(means), cols = starts_with("mean_"), names_to = "acc", values_to = "value"))
+# Rename
+data[,model := factor(model,levels=c('ucinet','minden','pcore'),
+                      labels=c('italic(d)=="NA"','italic(d)==0','italic(d)=="NA" ~~~ italic(p)==0.5'))]
+data[,core_size := factor(c,labels=paste('italic(c)==',cvals,sep=''))]
+data[,acc := factor(name,levels=c('fp','tn','tp','fn'),
+                    labels=c('False core','True periphery','True core','False periphery'))]
+data[,type := factor(conn,levels=c('no','core','periphery'),labels=c('Unconnected','Core','Periphery'))]
 
-# Rename factors
-data_long[, `:=`(
-  model = factor(name, levels = c("ucinet", "minden", "pcore"),
-                 labels = c("italic(d) == 'NA'", 
-                            "italic(d) >= 0", 
-                            "italic(d) >= 0 ~~~ italic(p) >= 0.25")),
-  core_size = factor(c, labels = paste("italic(c) ==", cvals, sep = '')),
-  type = factor(conn,levels=c('no','core','periphery'),
-                labels=c('Unconnected','Core','Periphery')),
-  acc = factor(acc, levels = c("mean_fp", "mean_tn", "mean_tp", "mean_fn"),
-               labels = c("False core", "True periphery", "True core", "False periphery"))
-)]
+# Visualization
+p3.1 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)==0')],
+               aes(x=k,y=value,fill=acc)) +
+  geom_bar(stat='identity') +
+  geom_hline(aes(yintercept = c)) +
+  geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
+  geom_text(aes(x=2,y=c-2.5,label='core'),size=2.5) +
+  facet_grid(model~core_size+type,labeller = label_parsed) +
+  labs(x=expression(italic(k)),y='Average confusion matrix',color='',fill='',linetype='') +
+  scale_fill_manual(values=c('red','green2','chartreuse','red3')) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(legend.position="top",
+        axis.title.x = element_blank(),   # Remove x-axis label
+        axis.text.x = element_blank(),    # Remove x-axis text (tick labels)
+        axis.ticks.x = element_blank())
 
-# Create plots
-p3.1 <- create_plot(data_long, c("italic(d) == 'NA'", "italic(d) >= 0"),
-                    facet_by = c("core_size", "type"))
-p3.2 <- create_plot(data_long, c("italic(d) == 'NA'", "italic(d) >= 0 ~~~ italic(p) >= 0.25"),
-                    facet_by = c("core_size", "type"))
+p3.2 <- ggplot(data=data[model %in% c('italic(d)=="NA"','italic(d)=="NA" ~~~ italic(p)==0.5')],
+               aes(x=k,y=value,fill=acc)) +
+  geom_bar(stat='identity') +
+  geom_hline(aes(yintercept = c)) +
+  geom_text(aes(x=2,y=c+2.5,label='periphery'),size=2.5) +
+  geom_text(aes(x=2,y=c-2.5,label='core'),size=2.5) +
+  facet_grid(model~core_size+type,labeller = label_parsed) +
+  labs(x=expression(italic(k)),y='Average confusion matrix',color='',fill='',linetype='') +
+  scale_fill_manual(values=c('red','green2','chartreuse','red3')) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(legend.position="top",
+        axis.title.x = element_blank(),   # Remove x-axis label
+        axis.text.x = element_blank(),    # Remove x-axis text (tick labels)
+        axis.ticks.x = element_blank())
 
-# Function to prepare data for modeling and plotting
-prepare_model_data <- function(data, model_names) {
-  data <- data[name %in% model_names]
-  data[, name := factor(name, levels = model_names)]
-  data[, ntw := rep(1:(nrow(data) / 2), each = 2)]
-  data[, ntw := as.factor(ntw)]
-  data[, c := as.factor(c)]
-  data[, conn := factor(conn,levels=c('no','core','periphery'))] 
-  data[, success := TP + TN]
-  data[, fail := FP + FN]
-  return(data)
-}
+# Second part of the plot comparing the accuracy of both models
+# 2.1) Comparing BE with min-density blocks ----
+data <- data.table(read_csv('simulations2.csv')) # bring data back
+# Change ref category
+data <- data[name %in% c('ucinet','minden')]
+data[,name := factor(name,levels=c('ucinet','minden'))]
+# Add indicator of network
+data[,ntw := rep(1:(nrow(data)/2),each=2)]
+data[,ntw := as.factor(ntw)]
+# Let's model c as a factor (a set of dummies)
+data[,c := as.factor(c)]
+# Also redefine the levels of conn
+data[,conn := factor(conn,levels=c('no','core','periphery'))]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Model and plot function ----
-run_model_and_plot <- function(data, model_name) {
-  model <- glmmTMB(cbind(success, fail) ~ name * k * c * conn + (1 | ntw),
-                   family = binomial(link = 'logit'), data = data)
-  predvals <- ggpredict(model, terms = c("k [all]", "name", "conn", "c"),
-                        ci_level = .995) # 99.5% Confidence intervals
-  predvals <- data.table(predvals)
-  
-  ggplot(data = predvals, aes(x = x, y = predicted, ymin = conf.low, ymax = conf.high,
-                              color = group, fill = group)) +
-    geom_ribbon(alpha = .5, linewidth = .1) + 
-    geom_line(linewidth = .25) +
-    scale_color_manual(values = c("red3", "navyblue"),
-                       labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
-    scale_fill_manual(values = c("orange", "royalblue"),
-                      labels = c(expression(italic(d) == "NA"), expression(italic(d) >= 0))) +
-    facet_grid("Confidence intervals (99.5%)" ~ panel + facet) +
-    labs(x = expression(italic(k)), y = "Actor assignment accuracy", color = "", fill = "") +
-    scale_y_continuous(labels = percent_format(scale = 100)) +
-    scale_x_continuous(breaks = seq(1, 3, by = 1)) +
-    theme(strip.text.x = element_blank(), legend.position = "top")
-}
+# Data modelling
+model3 <- glm(cbind(success, fail) ~ name*k*c*conn,
+              family = binomial(link = 'logit'), data = data)
+# Extract predicted values
+plot_model(model3,terms=c('name'),type='pred')
+(p4.1 <- plot_model(model3,terms=c('k [all]','name','conn','c'),type='pred'))
+# Let's just customize the plots
+data <- rbind(data.table(p4.1[[1]]$data),data.table(p4.1[[2]]$data),
+              data.table(p4.1[[3]]$data),data.table(p4.1[[4]]$data))
+p4.1 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
+                             color=group_col,fill=group_col)) + 
+  geom_ribbon(alpha=.5,linewidth=.1) + geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) == 0))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) == 0 ))) +
+  facet_grid('Predicted probabilities'~panel+facet) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
+  scale_y_continuous(labels = percent_format(scale = 100)) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(strip.text.x = element_blank(),legend.position = 'top')
 
-# Run analysis and plotting for each model
-data1 <- prepare_model_data(data, c("ucinet", "minden"))
-p4.1 <- run_model_and_plot(data1, "minden")
+# Combined both plots
+combined_plot3 <- p3.1 + p4.1 + plot_layout(ncol = 1, heights = c(2, 1))
 
-# Combined plots
-combined_plot1 <- p3.1 + p4.1 + plot_layout(ncol = 1, heights = c(2, 1))
-
-# Save the combined plot
-tiff(filename = "Fig9.1.tiff", width = 27, height = 20, 
-     units = "cm", compression = "lzw", bg = "white", res = 1000)
-combined_plot1
+# Print the combined plot
+tiff(filename="FigA3.tiff",
+     width=27, height=20,units="cm", 
+     compression="lzw",bg="white",res=1000
+)
+combined_plot3
 dev.off()
 
-# Run analysis and plotting for the second model
-data2 <- prepare_model_data(data, c("ucinet", "pcore"))
-p4.2 <- run_model_and_plot(data2, "pcore")
+# 2.2) Comparing BE with min-density blocks and pcore 0.5 ----
+data <- data.table(read_csv('simulations2.csv')) # bring data back
+# Change ref category
+data <- data[name %in% c('ucinet','pcore')]
+data[,name := factor(name,levels=c('ucinet','pcore'))]
+# Add indicator of network
+data[,ntw := rep(1:(nrow(data)/2),each=2)]
+data[,ntw := as.factor(ntw)]
+# Let's model c as a factor (a set of dummies)
+data[,c := as.factor(c)]
+# Also redefine the levels of conn
+data[,conn := factor(conn,levels=c('no','core','periphery'))]
+# Successes and failures
+data[,success := TP+TN]
+data[,fail := FP+FN]
 
-# Combined plots for the second analysis
-combined_plot2 <- p3.2 + p4.2 + plot_layout(ncol = 1, heights = c(2, 1))
+# Data modelling
+model4 <- glm(cbind(success, fail) ~ name*k*c*conn,
+              family = binomial(link = 'logit'), data = data)
+# Extract predicted values
+plot_model(model4,terms=c('name'),type='pred')
+(p4.2 <- plot_model(model4,terms=c('k [all]','name','conn','c'),type='pred'))
+# Let's just customize the plots
+data <- rbind(data.table(p4.2[[1]]$data),data.table(p4.2[[2]]$data),
+              data.table(p4.2[[3]]$data),data.table(p4.2[[4]]$data))
+p4.2 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
+                             color=group_col,fill=group_col)) + 
+  geom_ribbon(alpha=.5,linewidth=.1) + geom_line(linewidth=.25) +
+  scale_color_manual(values = c('red3','navyblue'), 
+                     labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
+  scale_fill_manual(values = c('orange', 'royalblue'), 
+                    labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
+  facet_grid('Predicted probabilities'~panel+facet) +
+  labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
+  scale_y_continuous(labels = percent_format(scale = 100)) +
+  scale_x_continuous(breaks = seq(1, 3, by = 1)) +
+  theme(strip.text.x = element_blank(),legend.position = 'top')
 
-# Save the combined plot
-tiff(filename = "Fig9.2.tiff", width = 27, height = 20,
-     units = "cm", compression = "lzw", bg = "white", res = 1000)
-combined_plot2
+# Combined both plots
+combined_plot4 <- p3.2 + p4.2 + plot_layout(ncol = 1, heights = c(2, 1))
+
+# Print the combined plot
+tiff(filename="FigA4.tiff",
+     width=27, height=20,units="cm", 
+     compression="lzw",bg="white",res=1000
+)
+combined_plot4
 dev.off()
 
 ################################################################################

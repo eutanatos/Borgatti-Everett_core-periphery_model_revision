@@ -1,7 +1,7 @@
 ################################################################################
 ## REVISING THE BORGATTI-EVERETT CORE-PERIPHERY MODEL
 ## (1) Illustration figures
-## R script written by José Luis Estévez (University of Helsinki / Vaestoliitto)
+## R script written by José Luis Estévez (University of Helsinki)
 ## Date: Aug 3rd, 2024
 ################################################################################
 
@@ -218,7 +218,7 @@ c5 <- ggplot(data = core,
 # Visualization
 empty_plot <- ggplot() + theme_void()
 
-tiff(filename="Fig2.tiff",
+tiff(filename="Fig6.tiff",
      width=24, height=16,units="cm", 
      compression="lzw",bg="white",res=1000
 )
