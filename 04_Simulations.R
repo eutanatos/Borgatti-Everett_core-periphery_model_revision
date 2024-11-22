@@ -175,7 +175,7 @@ tiff(filename="Fig5.tiff",
 combined_plot
 dev.off()
 
-# 2.2) Comparing BE with combination min-density and p-core 0.25 ----
+# 2.2) Comparing BE with combination min-density and p-core 0.5 ----
 data <- data.table(read_csv('simulations1.csv')) # bring data back
 # Change ref category
 data <- data[name %in% c('ucinet','pcore')]
