@@ -238,6 +238,7 @@ cp.pcore <- function(graph, delta=NA, p, ...) {
     Apc <- matrix(A[evabs == 0, evabs == 1], ncol = n_core)
     
     # Putting all blocks back together for AA
+    Acc <- Acc * NA # look only on the two core images Acc1 and Acc2
     if (n_core == 1){
       AA <- rbind(c(Acc, Acp), cbind(Apc, App))
     } else if (n_periphery == 1){
@@ -288,7 +289,7 @@ cp.pcore <- function(graph, delta=NA, p, ...) {
     W <- rep(1,length(AA))
     Wcc1 <- rep(0.5,length(Acc1)) # core observations are weighted by half
     Wcc2 <- rep(0.5,length(Acc2))
-    
+ 
     if (sum(E, na.rm = TRUE) == 0) {
       next
     }
@@ -296,6 +297,7 @@ cp.pcore <- function(graph, delta=NA, p, ...) {
     X <- data.frame(a = c(as.vector(Acc1),as.vector(Acc2),as.vector(AA)),
                     e = c(as.vector(Ecc1),as.vector(Ecc2),as.vector(E)),
                     w = c(as.vector(Wcc1),as.vector(Wcc2),as.vector(W)))
+    
     X <- na.omit(X) # remove NAs
     tmp <- suppressWarnings(weightedCorr(x=X$e,y=X$a,weights=X$w,method='Pearson'))
     if (is.na(tmp)) {
@@ -346,6 +348,7 @@ cp.minden.pcore <- function(graph, delta=0, p, ...) {
     Apc <- matrix(sort(A[evabs == 0, evabs == 1], decreasing = TRUE), ncol = n_core, byrow = FALSE)
     
     # Putting all blocks back together for AA
+    Acc <- Acc * NA # look only on the two core images Acc1 and Acc2
     if (n_core == 1){
       AA <- rbind(c(Acc, Acp), cbind(Apc, App))
     } else if (n_periphery == 1){

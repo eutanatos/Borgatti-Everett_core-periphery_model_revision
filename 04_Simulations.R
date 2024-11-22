@@ -200,9 +200,9 @@ data <- data.table(p2.2$data)
 p2.2 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
                              color=group_col,fill=group_col)) + 
   geom_ribbon(alpha=.5,linewidth=.1) + geom_line(linewidth=.25) +
-  scale_color_manual(values = c('red3','navyblue'), 
+  scale_color_manual(values = c('red3','darkgreen'), 
                      labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
-  scale_fill_manual(values = c('orange', 'royalblue'), 
+  scale_fill_manual(values = c('orange', 'springgreen3'), 
                     labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
   facet_grid('Predicted probabilities'~facet) +
   labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
@@ -467,9 +467,9 @@ data <- rbind(data.table(p4.2[[1]]$data),data.table(p4.2[[2]]$data),
 p4.2 <- ggplot(data=data,aes(x=x,y=predicted,ymin = conf.low, ymax = conf.high,
                              color=group_col,fill=group_col)) + 
   geom_ribbon(alpha=.5,linewidth=.1) + geom_line(linewidth=.25) +
-  scale_color_manual(values = c('red3','navyblue'), 
+  scale_color_manual(values = c('red3','darkgreen'), 
                      labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
-  scale_fill_manual(values = c('orange', 'royalblue'), 
+  scale_fill_manual(values = c('orange', 'springgreen3'), 
                     labels = c(expression(italic(d) == "NA"), expression(italic(d) == "NA" ~ "&" ~ italic(p) == 0.5))) +
   facet_grid('Predicted probabilities'~panel+facet) +
   labs(x=expression(italic(k)),y='Actor assignment accuracy',color='',fill='') +
