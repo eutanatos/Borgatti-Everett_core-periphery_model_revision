@@ -5,7 +5,7 @@
 [![Research Council of Finland funding](https://img.shields.io/badge/funding-Research_Council_of_Finland-green)](https://research.fi/en/results/funding/81442)
 
 This repository contains the data and code to replicate the results of the article:
-- Estévez, J. L., & Nordlund, C. (2024). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. Under Review.
+- Estévez, J. L., & Nordlund, C. (2024). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. _Social Networks_.
 
 ## Purpose of the repository
 
@@ -50,14 +50,18 @@ The repository includes four R scripts and a data folder:
 ## Funding
 
 This research was supported by NordForsk through the funding to "The Network Dynamics of Ethnic Integration", project number [105147](https://www.nordforsk.org/projects/network-dynamics-ethnic-integration). 
-José Luis Estévez was also supported by the Research Council of Finland, grant numbers [345184](https://research.fi/en/results/funding/37727), [345188](https://research.fi/en/results/funding/37704), [345183](https://research.fi/en/results/funding/37751), and [360022](https://research.fi/en/results/funding/81442).
+José Luis Estévez was also supported by the Research Council of Finland, grant numbers 
+[360022](https://research.fi/en/results/funding/81442),
+[364382](https://research.fi/en/results/funding/81092), 
+[364386](https://research.fi/en/results/funding/81095), and 
+[364371](https://research.fi/en/results/funding/81099).
 
 ## Citation
 
-- Estévez, J. L., & Nordlund, C. (2024). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. Under Review.
+- Estévez, J. L., & Nordlund, C. (2024). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. _Social Networks_.
 
 ## Contact information
 
 For any questions, please contact:
-- José Luis Estévez (joseluisesna@gmail.com)
+- José Luis Estévez (jose.estevez@helsinki.fi)
 - Carl Nordlund (carl.nordlund@liu.se)
