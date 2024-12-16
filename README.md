@@ -5,7 +5,7 @@
 [![Research Council of Finland funding](https://img.shields.io/badge/funding-Research_Council_of_Finland-green)](https://research.fi/en/results/funding/81442)
 
 This repository contains the data and code to replicate the results of the article:
-- Estévez, J. L., & Nordlund, C. (2024). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. _Social Networks_, _81_, 31-51. https://doi.org/10.1016/j.socnet.2024.11.002.
+- Estévez, J. L., & Nordlund, C. (2025). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. _Social Networks_, _81_, 31-51. https://doi.org/10.1016/j.socnet.2024.11.002.
 
 ## Purpose of the repository
 
@@ -57,7 +57,7 @@ José Luis Estévez was also supported by the Research Council of Finland, grant
 
 ## Citation
 
-- Estévez, J. L., & Nordlund, C. (2024). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. _Social Networks_.
+- Estévez, J. L., & Nordlund, C. (2025). 'Revising the Borgatti-Everett Core-Periphery Model: Inter-Categorical Density Blocks and Partially Connected Cores'. _Social Networks_, _81_, 31-51. https://doi.org/10.1016/j.socnet.2024.11.002.
 
 ## Contact information
 
